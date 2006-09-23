@@ -1,0 +1,18 @@
+@10 = ~Refresh Mage spells~
+
+@20 = ~Refresh Priest spells~
+
+@50 = ~Enter the number of seconds for spells to refresh (0 = instant)~
+
+@51 = ~Refresh on successful casting only~
+@52 = ~Refresh on successful casting and on unsuccessful casting~
+
+@100 = ~Mage spells~
+@110 = ~Priest spells~
+
+@200 = ~Magetype~
+@210 = ~Priesttype~
+
+@1000 = ~View Readme~
+@1010 = ~Show readme after installation~
+@1020 = ~Do not show readme after installation~
