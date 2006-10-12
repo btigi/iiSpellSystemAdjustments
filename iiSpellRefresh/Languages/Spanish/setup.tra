@@ -1,0 +1,18 @@
+@10 = ~Refrescar hechizos de Magos~
+
+@20 = ~Refrescar hechizos de Clérigos~
+
+@50 = ~Pon el número de segundos para refrescar hechizos (0 = instantáneo)~
+
+@51 = ~Refrescar sólamente al lanzar exitosamente~
+@52 = ~Refrescar al lanzar exitosamente o no~
+
+@100 = ~Hechizos de Magos~
+@110 = ~Hechizos de Clérigos~
+
+@200 = ~Tipo de Mago~
+@210 = ~Tipo de Clérigo~
+
+@1000 = ~Ver leeme~
+@1010 = ~Mostrar leeme luego de la instalación~
+@1020 = ~No mostrar leeme luego de la instalación~

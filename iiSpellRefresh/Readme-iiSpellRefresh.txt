@@ -1,4 +1,4 @@
-Spell Refresh Mod V1
+Spell Refresh Mod V2
 --------------------
 
 +) Contents
@@ -44,6 +44,9 @@ There are no known issues at this time.
 
 +) Section 5. Version History
 =============================
+V2 [13/10/2006]
+  - Added Spanish translation (Thanks Immortality)
+
 V1 [24/09/2006]
   - Initial Release
 
