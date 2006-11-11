@@ -1,0 +1,1704 @@
+// ----------------------------------------------------------------------------
+// Name:   Spell Refresh Mod
+// Author: igi
+// Date:   21/09/2006
+// ----------------------------------------------------------------------------
+BACKUP ~iiSpellSystemAdjustments/backup~
+AUTHOR ~igi~
+
+LANGUAGE ~English~ ~English~ ~iiSpellSystemAdjustments/Languages/English/setup.tra~
+LANGUAGE ~Spanish (Translation by Immortality)~  ~Spanish~ ~iiSpellSystemAdjustments/Languages/Spanish/setup.tra~
+
+
+// ------------------------------------------------------------------------------------------------------------------------
+// Readme stuff
+// Some people like to view the readme
+BEGIN @1010
+NO_LOG_RECORD
+DESIGNATED 1000
+SUBCOMPONENT @1000
+  AT_INTERACTIVE_EXIT ~VIEW iiSpellSystemAdjustments/Readme-iiSpellSystemAdjustments.txt~
+
+
+// And some people don't like to view the readme
+BEGIN @1020
+DESIGNATED 2000
+NO_LOG_RECORD
+SUBCOMPONENT @1000
+// Do nothing
+
+
+//!----------------------------------------------------------------------------
+// Mage Spells
+//!----------------------------------------------------------------------------
+BEGIN @51
+GROUP @100
+SUBCOMPONENT @10
+
+UNINSTALL ~Setup-iiSpellRefresh.TP2~ 2001
+
+  PRINT @50
+
+  ACTION_READLN SpellRefreshTime
+
+  OUTER_WHILE !(IS_AN_INT %SpellRefreshTime%) BEGIN
+    PRINT @50
+    ACTION_READLN SpellRefreshTime
+  END
+
+
+  ACTION_IF (IS_AN_INT ~%SpellRefreshTime%~) THEN BEGIN
+    COPY_EXISTING_REGEXP GLOB ~^.+\.spl$~ ~override~
+      PATCH_IF (SOURCE_SIZE > 0x71) THEN BEGIN // protects against invalid files
+        SPRINT SpellRefreshTime ~%SpellRefreshTime%~
+    
+        READ_SHORT 0x1c "spl_type"
+        READ_LONG  0x64 "abil_off"
+        READ_SHORT 0x68 "abil_num"
+        READ_LONG  0x6a "fx_off"
+        READ_SHORT 0x70 "fx_num"
+      
+        PATCH_IF ("%spl_type%" = "1") BEGIN
+          WHILE ("%abil_num%" > 0) BEGIN // adjusts indices for abilities
+            SET "abil_num" = ("%abil_num%" - 1)
+            READ_SHORT  ("%abil_off%" + 0x20 + ("%abil_num%" * 0x38)) "fx_idx"
+            WRITE_SHORT ("%abil_off%" + 0x20 + ("%abil_num%" * 0x38)) ("%fx_idx%" + 1)
+          END
+          WRITE_SHORT 0x70 ("%fx_num%" + 1)
+        
+          INSERT_BYTES  ("%fx_off%"       ) 0x30       // New effect
+            WRITE_SHORT ("%fx_off%"       ) 261        // Restore Lost Spell
+            WRITE_BYTE  ("%fx_off%" + 0x02) 1          // Target Self
+            WRITE_BYTE  ("%fx_off%" + 0x04) 9          // P1
+            WRITE_BYTE  ("%fx_off%" + 0x08) 0          // P2 (Wizard / Bard)
+            PATCH_IF (%SpellRefreshTime% = 0) BEGIN
+              WRITE_BYTE  ("%fx_off%" + 0x0c) 1        // Permanent/Instant
+            END
+            ELSE BEGIN
+              WRITE_BYTE  ("%fx_off%" + 0x0c) 4        // Delayed
+              WRITE_BYTE  ("%fx_off%" + 0x0e) %SpellRefreshTime% // User-defined value
+            END
+            WRITE_BYTE  ("%fx_off%" + 0x12) 100        // Probability
+            WRITE_BYTE  ("%fx_off%" + 0x0d) 3          // Dispel/Bypass
+          WHILE ("%fx_num%" > 0) BEGIN
+            SET "fx_num" = ("%fx_num%" - 1)
+            WRITE_BYTE ("%fx_off%" + 0x0d) 2 // no dispel/not bypass
+            WRITE_LONG ("%fx_off%" + 0x0e) 0 // duration
+          END
+        END
+      END
+      BUT_ONLY_IF_IT_CHANGES
+  END
+
+
+
+
+BEGIN @52
+GROUP @100
+SUBCOMPONENT @10
+
+UNINSTALL ~Setup-iiSpellRefresh.TP2~ 2002
+
+  PRINT @50
+  ACTION_READLN SpellRefreshTime
+
+  OUTER_WHILE !(IS_AN_INT %SpellRefreshTime%) BEGIN
+    PRINT @50
+    ACTION_READLN SpellRefreshTime
+  END
+
+  ACTION_IF (IS_AN_INT ~%SpellRefreshTime%~) THEN BEGIN
+    COPY_EXISTING_REGEXP GLOB ~^.+\.spl$~ ~override~
+    READ_SHORT 0x1c "spl_type"
+    READ_LONG  0x64 "abil_off"
+    READ_SHORT 0x68 "abil_num"
+    READ_LONG  0x6a "fx_off"
+    PATCH_IF ("%spl_type%" = "1") BEGIN
+      SET "loops" = 0
+      SET "delta" = 0
+      WHILE ("%loops%" < "%abil_num%") BEGIN
+        READ_SHORT ("%abil_off%" + 0x1e + (0x28 * "%loops%")) "abil_fx_num"
+        READ_SHORT ("%abil_off%" + 0x20 + (0x28 * "%loops%")) "abil_fx_idx"
+        SET "abil_fx_idx" = ("%abil_fx_idx%" + "%delta%")
+        WRITE_SHORT ("%abil_off%" + 0x20 + (0x28 * "%loops%")) "%abil_fx_idx%"
+        INSERT_BYTES  ("%fx_off%" +        ("%abil_fx_idx%" * 0x30)) 0x30   // New effect
+          WRITE_SHORT ("%fx_off%" +        ("%abil_fx_idx%" * 0x30)) 261    // Restore Lost Spell
+          WRITE_BYTE ("%fx_off%" + 0x02 + (("%abil_fx_idx%") * 0x30)) 1     // Target Self
+          WRITE_BYTE ("%fx_off%" + 0x04 + (("%abil_fx_idx%") * 0x30)) 9     // P1
+          WRITE_BYTE ("%fx_off%" + 0x08 + (("%abil_fx_idx%") * 0x30)) 0     // P2 (Wizard / Bard)
+          PATCH_IF (%SpellRefreshTime% = 0) BEGIN
+            WRITE_BYTE ("%fx_off%" + 0x0c + (("%abil_fx_idx%") * 0x30)) 1   // Permanent/Instant
+          END
+          ELSE BEGIN
+            WRITE_BYTE ("%fx_off%" + 0x0c + (("%abil_fx_idx%") * 0x30)) 4   // Delayed
+            WRITE_BYTE ("%fx_off%" + 0x0e + (("%abil_fx_idx%") * 0x30)) %SpellRefreshTime% // User-defined value
+          END
+          WRITE_BYTE ("%fx_off%" + 0x12 + (("%abil_fx_idx%") * 0x30)) 100   // Probability
+          WRITE_BYTE ("%fx_off%" + 0x0d + (("%abil_fx_idx%") * 0x30)) 3     // Dispel/Bypass
+        SET "delta1" = 1
+        SET "delta" = ("%delta%" + "%delta1%")
+        WRITE_SHORT ("%abil_off%" + 0x1e + (0x28 * "%loops%")) ("%abil_fx_num%" + "%delta1%")
+        SET "loops" = ("%loops%" + 1)
+      END
+    END
+    BUT_ONLY_IF_IT_CHANGES
+  END
+
+
+
+
+
+//!----------------------------------------------------------------------------
+// Priest Spells
+//!----------------------------------------------------------------------------
+BEGIN @51
+GROUP @110
+SUBCOMPONENT @20
+
+UNINSTALL ~Setup-iiSpellRefresh.TP2~ 2003
+
+  PRINT @50
+
+  ACTION_READLN SpellRefreshTime
+
+  OUTER_WHILE !(IS_AN_INT %SpellRefreshTime%) BEGIN
+    PRINT @50
+    ACTION_READLN SpellRefreshTime
+  END
+
+
+  ACTION_IF (IS_AN_INT ~%SpellRefreshTime%~) THEN BEGIN
+    COPY_EXISTING_REGEXP GLOB ~^.+\.spl$~ ~override~
+      PATCH_IF (SOURCE_SIZE > 0x71) THEN BEGIN // protects against invalid files
+        SPRINT SpellRefreshTime ~%SpellRefreshTime%~
+    
+        READ_SHORT 0x1c "spl_type"
+        READ_LONG  0x64 "abil_off"
+        READ_SHORT 0x68 "abil_num"
+        READ_LONG  0x6a "fx_off"
+        READ_SHORT 0x70 "fx_num"
+      
+        PATCH_IF ("%spl_type%" = "2") BEGIN
+          WHILE ("%abil_num%" > 0) BEGIN // adjusts indices for abilities
+            SET "abil_num" = ("%abil_num%" - 1)
+            READ_SHORT  ("%abil_off%" + 0x20 + ("%abil_num%" * 0x38)) "fx_idx"
+            WRITE_SHORT ("%abil_off%" + 0x20 + ("%abil_num%" * 0x38)) ("%fx_idx%" + 1)
+          END
+          WRITE_SHORT 0x70 ("%fx_num%" + 1)
+        
+          INSERT_BYTES  ("%fx_off%"       ) 0x30       // New effect
+            WRITE_SHORT ("%fx_off%"       ) 261        // Restore Lost Spell
+            WRITE_BYTE  ("%fx_off%" + 0x02) 1          // Target Self
+            WRITE_BYTE  ("%fx_off%" + 0x04) 9          // P1
+            WRITE_BYTE  ("%fx_off%" + 0x08) 1          // P2 (Priest / Druid)
+            PATCH_IF (%SpellRefreshTime% = 0) BEGIN
+              WRITE_BYTE  ("%fx_off%" + 0x0c) 1        // Permanent/Instant
+            END
+            ELSE BEGIN
+              WRITE_BYTE  ("%fx_off%" + 0x0c) 4        // Delayed
+              WRITE_BYTE  ("%fx_off%" + 0x0e) %SpellRefreshTime% // User-defined value
+            END
+            WRITE_BYTE  ("%fx_off%" + 0x12) 100        // Probability
+            WRITE_BYTE  ("%fx_off%" + 0x0d) 3          // Dispel/Bypass
+          WHILE ("%fx_num%" > 0) BEGIN
+            SET "fx_num" = ("%fx_num%" - 1)
+            WRITE_BYTE ("%fx_off%" + 0x0d) 2 // no dispel/not bypass
+            WRITE_LONG ("%fx_off%" + 0x0e) 0 // duration
+          END
+        END
+      END
+      BUT_ONLY_IF_IT_CHANGES
+  END
+
+
+
+
+BEGIN @52
+GROUP @110
+SUBCOMPONENT @20
+
+UNINSTALL ~Setup-iiSpellRefresh.TP2~ 2004
+
+  PRINT @50
+  ACTION_READLN SpellRefreshTime
+
+  OUTER_WHILE !(IS_AN_INT %SpellRefreshTime%) BEGIN
+    PRINT @50
+    ACTION_READLN SpellRefreshTime
+  END
+
+  ACTION_IF (IS_AN_INT ~%SpellRefreshTime%~) THEN BEGIN
+    COPY_EXISTING_REGEXP GLOB ~^.+\.spl$~ ~override~
+    READ_SHORT 0x1c "spl_type"
+    READ_LONG  0x64 "abil_off"
+    READ_SHORT 0x68 "abil_num"
+    READ_LONG  0x6a "fx_off"
+    PATCH_IF ("%spl_type%" = "2") BEGIN
+      SET "loops" = 0
+      SET "delta" = 0
+      WHILE ("%loops%" < "%abil_num%") BEGIN
+        READ_SHORT ("%abil_off%" + 0x1e + (0x28 * "%loops%")) "abil_fx_num"
+        READ_SHORT ("%abil_off%" + 0x20 + (0x28 * "%loops%")) "abil_fx_idx"
+        SET "abil_fx_idx" = ("%abil_fx_idx%" + "%delta%")
+        WRITE_SHORT ("%abil_off%" + 0x20 + (0x28 * "%loops%")) "%abil_fx_idx%"
+        INSERT_BYTES  ("%fx_off%" +        ("%abil_fx_idx%" * 0x30)) 0x30   // New effect
+          WRITE_SHORT ("%fx_off%" +        ("%abil_fx_idx%" * 0x30)) 261    // Restore Lost Spell
+          WRITE_BYTE ("%fx_off%" + 0x02 + (("%abil_fx_idx%") * 0x30)) 1     // Target Self
+          WRITE_BYTE ("%fx_off%" + 0x04 + (("%abil_fx_idx%") * 0x30)) 9     // P1
+          WRITE_BYTE ("%fx_off%" + 0x08 + (("%abil_fx_idx%") * 0x30)) 1     // P2 (Priest / Druid)
+          PATCH_IF (%SpellRefreshTime% = 0) BEGIN
+            WRITE_BYTE ("%fx_off%" + 0x0c + (("%abil_fx_idx%") * 0x30)) 1   // Permanent/Instant
+          END
+          ELSE BEGIN
+            WRITE_BYTE ("%fx_off%" + 0x0c + (("%abil_fx_idx%") * 0x30)) 4   // Delayed
+            WRITE_BYTE ("%fx_off%" + 0x0e + (("%abil_fx_idx%") * 0x30)) %SpellRefreshTime% // User-defined value
+          END
+          WRITE_BYTE ("%fx_off%" + 0x12 + (("%abil_fx_idx%") * 0x30)) 100   // Probability
+          WRITE_BYTE ("%fx_off%" + 0x0d + (("%abil_fx_idx%") * 0x30)) 3     // Dispel/Bypass
+        SET "delta1" = 1
+        SET "delta" = ("%delta%" + "%delta1%")
+        WRITE_SHORT ("%abil_off%" + 0x1e + (0x28 * "%loops%")) ("%abil_fx_num%" + "%delta1%")
+        SET "loops" = ("%loops%" + 1)
+      END
+    END
+    BUT_ONLY_IF_IT_CHANGES
+  END
+
+
+
+
+
+//!----------------------------------------------------------------------------
+// Innate Spells
+//!----------------------------------------------------------------------------
+BEGIN @51
+GROUP @120
+SUBCOMPONENT @30
+  PRINT @50
+
+  ACTION_READLN SpellRefreshTime
+
+  OUTER_WHILE !(IS_AN_INT %SpellRefreshTime%) BEGIN
+    PRINT @50
+    ACTION_READLN SpellRefreshTime
+  END
+
+
+  ACTION_IF (IS_AN_INT ~%SpellRefreshTime%~) THEN BEGIN
+    COPY_EXISTING_REGEXP GLOB ~^.+\.spl$~ ~override~
+      PATCH_IF (SOURCE_SIZE > 0x71) THEN BEGIN // protects against invalid files
+        SPRINT SpellRefreshTime ~%SpellRefreshTime%~
+    
+        READ_SHORT 0x1c "spl_type"
+        READ_LONG  0x64 "abil_off"
+        READ_SHORT 0x68 "abil_num"
+        READ_LONG  0x6a "fx_off"
+        READ_SHORT 0x70 "fx_num"
+      
+        PATCH_IF ("%spl_type%" = "4") BEGIN
+          WHILE ("%abil_num%" > 0) BEGIN // adjusts indices for abilities
+            SET "abil_num" = ("%abil_num%" - 1)
+            READ_SHORT  ("%abil_off%" + 0x20 + ("%abil_num%" * 0x38)) "fx_idx"
+            WRITE_SHORT ("%abil_off%" + 0x20 + ("%abil_num%" * 0x38)) ("%fx_idx%" + 1)
+          END
+          WRITE_SHORT 0x70 ("%fx_num%" + 1)
+        
+          INSERT_BYTES  ("%fx_off%"       ) 0x30       // New effect
+            WRITE_SHORT ("%fx_off%"       ) 261        // Restore Lost Spell
+            WRITE_BYTE  ("%fx_off%" + 0x02) 1          // Target Self
+            WRITE_BYTE  ("%fx_off%" + 0x04) 9          // P1
+            WRITE_BYTE  ("%fx_off%" + 0x08) 1          // P2 (Priest / Druid)
+            PATCH_IF (%SpellRefreshTime% = 0) BEGIN
+              WRITE_BYTE  ("%fx_off%" + 0x0c) 1        // Permanent/Instant
+            END
+            ELSE BEGIN
+              WRITE_BYTE  ("%fx_off%" + 0x0c) 4        // Delayed
+              WRITE_BYTE  ("%fx_off%" + 0x0e) %SpellRefreshTime% // User-defined value
+            END
+            WRITE_BYTE  ("%fx_off%" + 0x12) 100        // Probability
+            WRITE_BYTE  ("%fx_off%" + 0x0d) 3          // Dispel/Bypass
+          WHILE ("%fx_num%" > 0) BEGIN
+            SET "fx_num" = ("%fx_num%" - 1)
+            WRITE_BYTE ("%fx_off%" + 0x0d) 2 // no dispel/not bypass
+            WRITE_LONG ("%fx_off%" + 0x0e) 0 // duration
+          END
+        END
+      END
+      BUT_ONLY_IF_IT_CHANGES
+  END
+
+
+
+
+BEGIN @52
+GROUP @120
+SUBCOMPONENT @30
+  PRINT @50
+  ACTION_READLN SpellRefreshTime
+
+  OUTER_WHILE !(IS_AN_INT %SpellRefreshTime%) BEGIN
+    PRINT @50
+    ACTION_READLN SpellRefreshTime
+  END
+
+  ACTION_IF (IS_AN_INT ~%SpellRefreshTime%~) THEN BEGIN
+    COPY_EXISTING_REGEXP GLOB ~^.+\.spl$~ ~override~
+    READ_SHORT 0x1c "spl_type"
+    READ_LONG  0x64 "abil_off"
+    READ_SHORT 0x68 "abil_num"
+    READ_LONG  0x6a "fx_off"
+    PATCH_IF ("%spl_type%" = "4") BEGIN
+      SET "loops" = 0
+      SET "delta" = 0
+      WHILE ("%loops%" < "%abil_num%") BEGIN
+        READ_SHORT ("%abil_off%" + 0x1e + (0x28 * "%loops%")) "abil_fx_num"
+        READ_SHORT ("%abil_off%" + 0x20 + (0x28 * "%loops%")) "abil_fx_idx"
+        SET "abil_fx_idx" = ("%abil_fx_idx%" + "%delta%")
+        WRITE_SHORT ("%abil_off%" + 0x20 + (0x28 * "%loops%")) "%abil_fx_idx%"
+        INSERT_BYTES  ("%fx_off%" +        ("%abil_fx_idx%" * 0x30)) 0x30   // New effect
+          WRITE_SHORT ("%fx_off%" +        ("%abil_fx_idx%" * 0x30)) 261    // Restore Lost Spell
+          WRITE_BYTE ("%fx_off%" + 0x02 + (("%abil_fx_idx%") * 0x30)) 1     // Target Self
+          WRITE_BYTE ("%fx_off%" + 0x04 + (("%abil_fx_idx%") * 0x30)) 9     // P1
+          WRITE_BYTE ("%fx_off%" + 0x08 + (("%abil_fx_idx%") * 0x30)) 1     // P2 (Priest / Druid)
+          PATCH_IF (%SpellRefreshTime% = 0) BEGIN
+            WRITE_BYTE ("%fx_off%" + 0x0c + (("%abil_fx_idx%") * 0x30)) 1   // Permanent/Instant
+          END
+          ELSE BEGIN
+            WRITE_BYTE ("%fx_off%" + 0x0c + (("%abil_fx_idx%") * 0x30)) 4   // Delayed
+            WRITE_BYTE ("%fx_off%" + 0x0e + (("%abil_fx_idx%") * 0x30)) %SpellRefreshTime% // User-defined value
+          END
+          WRITE_BYTE ("%fx_off%" + 0x12 + (("%abil_fx_idx%") * 0x30)) 100   // Probability
+          WRITE_BYTE ("%fx_off%" + 0x0d + (("%abil_fx_idx%") * 0x30)) 3     // Dispel/Bypass
+        SET "delta1" = 1
+        SET "delta" = ("%delta%" + "%delta1%")
+        WRITE_SHORT ("%abil_off%" + 0x1e + (0x28 * "%loops%")) ("%abil_fx_num%" + "%delta1%")
+        SET "loops" = ("%loops%" + 1)
+      END
+    END
+    BUT_ONLY_IF_IT_CHANGES
+  END
+
+
+
+
+
+//!----------------------------------------------------------------------------
+// XP for casting (Mage spells)
+//!----------------------------------------------------------------------------
+
+BEGIN @4051
+GROUP @4000
+SUBCOMPONENT @4000
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5000
+    ACTION_READLN _XP_PER_CAST_LVL_1_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_1_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_1_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5001
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_1_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_1_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_1_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5002
+    ACTION_READLN _XP_PER_CAST_LVL_2_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_2_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_2_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5003
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_2_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_2_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_2_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5004
+    ACTION_READLN _XP_PER_CAST_LVL_3_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_3_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_3_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5005
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_3_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_3_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_3_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5006
+    ACTION_READLN _XP_PER_CAST_LVL_4_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_4_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_4_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5007
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_4_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_4_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_4_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5008
+    ACTION_READLN _XP_PER_CAST_LVL_5_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_5_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_5_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5009
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_5_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_5_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_5_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5010
+    ACTION_READLN _XP_PER_CAST_LVL_6_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_6_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_6_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5011
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_6_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_6_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_6_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5012
+    ACTION_READLN _XP_PER_CAST_LVL_7_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_7_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_7_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5013
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_7_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_7_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_7_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5014
+    ACTION_READLN _XP_PER_CAST_LVL_8_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_8_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_8_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5015
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_8_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_8_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_8_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5016
+    ACTION_READLN _XP_PER_CAST_LVL_9_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_9_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_9_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5017
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_9_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_9_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_9_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+//  COPY_EXISTING_REGEXP GLOB ~^.+\.spl$~ ~override~
+  COPY_EXISTING_REGEXP GLOB ~^\([Ss][Pp][Ww][Ii]\).*\.spl$~ ~override~
+    PATCH_IF (SOURCE_SIZE > 0x71) THEN BEGIN // protects against invalid files
+      READ_SHORT 0x1c "spl_type"
+      READ_LONG  0x34 "spl_level"
+      READ_LONG  0x64 "abil_off"
+      READ_SHORT 0x68 "abil_num"
+      READ_LONG  0x6a "fx_off"
+      READ_SHORT 0x70 "fx_num"
+
+      PATCH_IF ("%spl_type%" = "1") BEGIN
+        WHILE ("%abil_num%" > 0) BEGIN // adjusts indices for abilities
+          SET "abil_num" = ("%abil_num%" - 1)
+          READ_SHORT  ("%abil_off%" + 0x20 + ("%abil_num%" * 0x38)) "fx_idx"
+          WRITE_SHORT ("%abil_off%" + 0x20 + ("%abil_num%" * 0x38)) ("%fx_idx%" + 1)
+        END
+        WRITE_SHORT 0x70 ("%fx_num%" + 1)
+      
+        INSERT_BYTES  ("%fx_off%"       ) 0x30       // New effect
+          WRITE_SHORT ("%fx_off%"       ) 309        // Set/Modify Variable
+          WRITE_BYTE  ("%fx_off%" + 0x02) 1          // Target Self
+          WRITE_BYTE  ("%fx_off%" + 0x04) 1          // Value
+          WRITE_BYTE  ("%fx_off%" + 0x08) 0          // Type
+          WRITE_BYTE  ("%fx_off%" + 0x0c) 1          // Permanent/Instant
+          WRITE_BYTE  ("%fx_off%" + 0x12) 100        // Probability
+          WRITE_BYTE  ("%fx_off%" + 0x0d) 0          // Dispel/Bypass
+          WRITE_EVALUATED_ASCII ("%fx_off%" + 0x14 ) ~%SOURCE_RES%~ #8 // Resource
+
+        WHILE ("%fx_num%" > 0) BEGIN
+          SET "fx_num" = ("%fx_num%" - 1)
+          WRITE_BYTE ("%fx_off%" + 0x0d) 2 // no dispel/not bypass
+          WRITE_LONG ("%fx_off%" + 0x0e) 0 // duration
+        END
+
+        SPRINT %__SPELL__%  ~%SOURCE_RES%~
+
+        PATCH_IF %spl_level% = 1 THEN
+        BEGIN
+          SET %__XP__%       = %_XP_PER_CAST_LVL_1_%
+          SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_1_% / %__XP__%)
+        END
+
+        PATCH_IF %spl_level% = 2 THEN
+        BEGIN
+          SET %__XP__% = %_XP_PER_CAST_LVL_2_%
+          SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_2_% / %__XP__%)
+        END
+
+        PATCH_IF %spl_level% = 3 THEN
+        BEGIN
+          SET %__XP__% = %_XP_PER_CAST_LVL_3_%
+          SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_3_% / %__XP__%)
+        END
+
+        PATCH_IF %spl_level% = 4 THEN
+        BEGIN
+          SET %__XP__% = %_XP_PER_CAST_LVL_4_%
+          SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_4_% / %__XP__%)
+        END
+
+        PATCH_IF %spl_level% = 5 THEN
+        BEGIN
+          SET %__XP__% = %_XP_PER_CAST_LVL_5_%
+          SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_5_% / %__XP__%)
+        END
+
+        PATCH_IF %spl_level% = 6 THEN
+        BEGIN
+          SET %__XP__% = %_XP_PER_CAST_LVL_6_%
+          SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_6_% / %__XP__%)
+        END
+
+        PATCH_IF %spl_level% = 7 THEN
+        BEGIN
+          SET %__XP__% = %_XP_PER_CAST_LVL_7_%
+          SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_7_% / %__XP__%)
+        END
+
+        PATCH_IF %spl_level% = 8 THEN
+        BEGIN
+          SET %__XP__% = %_XP_PER_CAST_LVL_8_%
+          SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_8_% / %__XP__%)
+        END
+
+        PATCH_IF %spl_level% = 9 THEN
+        BEGIN
+          SET %__XP__% = %_XP_PER_CAST_LVL_9_%
+          SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_9_% / %__XP__%)
+        END
+
+        INNER_ACTION BEGIN
+
+            EXTEND_TOP ~dplayer2.bcs~ ~iiSpellSystemAdjustments/baf/dplayer.baf~
+              EVALUATE_BUFFER
+
+            EXTEND_TOP ~dplayer3.bcs~ ~iiSpellSystemAdjustments/baf/dplayer.baf~
+              EVALUATE_BUFFER
+        END
+
+      END
+    END
+    BUT_ONLY_IF_IT_CHANGES
+
+
+
+BEGIN @4052
+GROUP @4000
+SUBCOMPONENT @4000
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5000
+    ACTION_READLN _XP_PER_CAST_LVL_1_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_1_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_1_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5001
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_1_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_1_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_1_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5002
+    ACTION_READLN _XP_PER_CAST_LVL_2_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_2_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_2_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5003
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_2_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_2_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_2_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5004
+    ACTION_READLN _XP_PER_CAST_LVL_3_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_3_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_3_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5005
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_3_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_3_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_3_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5006
+    ACTION_READLN _XP_PER_CAST_LVL_4_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_4_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_4_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5007
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_4_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_4_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_4_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5008
+    ACTION_READLN _XP_PER_CAST_LVL_5_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_5_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_5_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5009
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_5_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_5_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_5_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5010
+    ACTION_READLN _XP_PER_CAST_LVL_6_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_6_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_6_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5011
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_6_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_6_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_6_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5012
+    ACTION_READLN _XP_PER_CAST_LVL_7_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_7_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_7_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5013
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_7_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_7_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_7_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5014
+    ACTION_READLN _XP_PER_CAST_LVL_8_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_8_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_8_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5015
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_8_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_8_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_8_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5016
+    ACTION_READLN _XP_PER_CAST_LVL_9_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_9_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_9_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5017
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_9_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_9_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_9_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+//  COPY_EXISTING_REGEXP GLOB ~^.+\.spl$~ ~override~
+  COPY_EXISTING_REGEXP GLOB ~^\([Ss][Pp][Ww][Ii]\).*\.spl$~ ~override~
+    PATCH_IF (SOURCE_SIZE > 0x71) THEN BEGIN // protects against invalid files
+      READ_SHORT 0x1c "spl_type"
+      READ_LONG  0x34 "spl_level"
+      READ_LONG  0x64 "abil_off"
+      READ_SHORT 0x68 "abil_num"
+      READ_LONG  0x6a "fx_off"
+      PATCH_IF ("%spl_type%" = "1") BEGIN
+        SET "loops" = 0
+        SET "delta" = 0
+        WHILE ("%loops%" < "%abil_num%") BEGIN
+          READ_SHORT ("%abil_off%" + 0x1e + (0x28 * "%loops%")) "abil_fx_num"
+          READ_SHORT ("%abil_off%" + 0x20 + (0x28 * "%loops%")) "abil_fx_idx"
+          SET "abil_fx_idx" = ("%abil_fx_idx%" + "%delta%")
+          WRITE_SHORT ("%abil_off%" + 0x20 + (0x28 * "%loops%")) "%abil_fx_idx%"
+          INSERT_BYTES  ("%fx_off%" +        ("%abil_fx_idx%" * 0x30)) 0x30   // New effect
+            WRITE_SHORT ("%fx_off%" +        ("%abil_fx_idx%" * 0x30)) 309    // Set/Modify Variable
+            WRITE_BYTE ("%fx_off%" + 0x02 + (("%abil_fx_idx%") * 0x30)) 1     // Target Self
+            WRITE_BYTE ("%fx_off%" + 0x04 + (("%abil_fx_idx%") * 0x30)) 1     // Value
+            WRITE_BYTE ("%fx_off%" + 0x08 + (("%abil_fx_idx%") * 0x30)) 0     // Type
+            WRITE_BYTE ("%fx_off%" + 0x0c + (("%abil_fx_idx%") * 0x30)) 1     // Permanent/Instant
+            WRITE_BYTE ("%fx_off%" + 0x12 + (("%abil_fx_idx%") * 0x30)) 100   // Probability
+            WRITE_BYTE ("%fx_off%" + 0x0d + (("%abil_fx_idx%") * 0x30)) 0     // Dispel/Bypass
+            WRITE_EVALUATED_ASCII ("%fx_off%" + 0x14 + (("%abil_fx_idx%") * 0x30)) ~%SOURCE_RES%~ #8     // Resource
+          SET "delta1" = 1
+          SET "delta" = ("%delta%" + "%delta1%")
+          WRITE_SHORT ("%abil_off%" + 0x1e + (0x28 * "%loops%")) ("%abil_fx_num%" + "%delta1%")
+          SET "loops" = ("%loops%" + 1)
+        END
+
+          SPRINT %__SPELL__%  ~%SOURCE_RES%~
+      
+          PATCH_IF %spl_level% = 1 THEN
+          BEGIN
+            SET %__XP__%       = %_XP_PER_CAST_LVL_1_%
+            SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_1_% / %__XP__%)
+          END
+      
+          PATCH_IF %spl_level% = 2 THEN
+          BEGIN
+            SET %__XP__% = %_XP_PER_CAST_LVL_2_%
+            SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_2_% / %__XP__%)
+          END
+      
+          PATCH_IF %spl_level% = 3 THEN
+          BEGIN
+            SET %__XP__% = %_XP_PER_CAST_LVL_3_%
+            SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_3_% / %__XP__%)
+          END
+      
+          PATCH_IF %spl_level% = 4 THEN
+          BEGIN
+            SET %__XP__% = %_XP_PER_CAST_LVL_4_%
+            SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_4_% / %__XP__%)
+          END
+      
+          PATCH_IF %spl_level% = 5 THEN
+          BEGIN
+            SET %__XP__% = %_XP_PER_CAST_LVL_5_%
+            SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_5_% / %__XP__%)
+          END
+      
+          PATCH_IF %spl_level% = 6 THEN
+          BEGIN
+            SET %__XP__% = %_XP_PER_CAST_LVL_6_%
+            SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_6_% / %__XP__%)
+          END
+      
+          PATCH_IF %spl_level% = 7 THEN
+          BEGIN
+            SET %__XP__% = %_XP_PER_CAST_LVL_7_%
+            SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_7_% / %__XP__%)
+          END
+      
+          PATCH_IF %spl_level% = 8 THEN
+          BEGIN
+            SET %__XP__% = %_XP_PER_CAST_LVL_8_%
+            SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_8_% / %__XP__%)
+          END
+      
+          PATCH_IF %spl_level% = 9 THEN
+          BEGIN
+            SET %__XP__% = %_XP_PER_CAST_LVL_9_%
+            SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_9_% / %__XP__%)
+          END
+      
+          INNER_ACTION BEGIN
+      
+              EXTEND_TOP ~dplayer2.bcs~ ~iiSpellSystemAdjustments/baf/dplayer.baf~
+                EVALUATE_BUFFER
+      
+              EXTEND_TOP ~dplayer3.bcs~ ~iiSpellSystemAdjustments/baf/dplayer.baf~
+                EVALUATE_BUFFER
+          END
+
+      END
+    END
+    BUT_ONLY_IF_IT_CHANGES
+
+
+
+
+//!----------------------------------------------------------------------------
+// XP for casting (Priest spells)
+//!----------------------------------------------------------------------------
+BEGIN @4051
+GROUP @4001
+SUBCOMPONENT @4001
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5000
+    ACTION_READLN _XP_PER_CAST_LVL_1_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_1_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_1_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5001
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_1_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_1_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_1_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5002
+    ACTION_READLN _XP_PER_CAST_LVL_2_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_2_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_2_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5003
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_2_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_2_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_2_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5004
+    ACTION_READLN _XP_PER_CAST_LVL_3_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_3_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_3_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5005
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_3_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_3_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_3_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5006
+    ACTION_READLN _XP_PER_CAST_LVL_4_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_4_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_4_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5007
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_4_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_4_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_4_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5008
+    ACTION_READLN _XP_PER_CAST_LVL_5_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_5_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_5_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5009
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_5_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_5_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_5_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5010
+    ACTION_READLN _XP_PER_CAST_LVL_6_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_6_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_6_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5011
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_6_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_6_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_6_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5012
+    ACTION_READLN _XP_PER_CAST_LVL_7_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_7_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_7_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5013
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_7_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_7_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_7_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+
+//  COPY_EXISTING_REGEXP GLOB ~^.+\.spl$~ ~override~
+  COPY_EXISTING_REGEXP GLOB ~^\([Ss][Pp][Ww][Ii]\).*\.spl$~ ~override~
+    PATCH_IF (SOURCE_SIZE > 0x71) THEN BEGIN // protects against invalid files
+      READ_SHORT 0x1c "spl_type"
+      READ_LONG  0x34 "spl_level"
+      READ_LONG  0x64 "abil_off"
+      READ_SHORT 0x68 "abil_num"
+      READ_LONG  0x6a "fx_off"
+      READ_SHORT 0x70 "fx_num"
+
+      PATCH_IF ("%spl_type%" = "2") BEGIN
+        WHILE ("%abil_num%" > 0) BEGIN // adjusts indices for abilities
+          SET "abil_num" = ("%abil_num%" - 1)
+          READ_SHORT  ("%abil_off%" + 0x20 + ("%abil_num%" * 0x38)) "fx_idx"
+          WRITE_SHORT ("%abil_off%" + 0x20 + ("%abil_num%" * 0x38)) ("%fx_idx%" + 1)
+        END
+        WRITE_SHORT 0x70 ("%fx_num%" + 1)
+      
+        INSERT_BYTES  ("%fx_off%"       ) 0x30       // New effect
+          WRITE_SHORT ("%fx_off%"       ) 309        // Set/Modify Variable
+          WRITE_BYTE  ("%fx_off%" + 0x02) 1          // Target Self
+          WRITE_BYTE  ("%fx_off%" + 0x04) 1          // Value
+          WRITE_BYTE  ("%fx_off%" + 0x08) 0          // Type
+          WRITE_BYTE  ("%fx_off%" + 0x0c) 1          // Permanent/Instant
+          WRITE_BYTE  ("%fx_off%" + 0x12) 100        // Probability
+          WRITE_BYTE  ("%fx_off%" + 0x0d) 0          // Dispel/Bypass
+          WRITE_EVALUATED_ASCII ("%fx_off%" + 0x14 ) ~%SOURCE_RES%~ #8 // Resource
+
+        WHILE ("%fx_num%" > 0) BEGIN
+          SET "fx_num" = ("%fx_num%" - 1)
+          WRITE_BYTE ("%fx_off%" + 0x0d) 2 // no dispel/not bypass
+          WRITE_LONG ("%fx_off%" + 0x0e) 0 // duration
+        END
+
+        SPRINT %__SPELL__%  ~%SOURCE_RES%~
+
+        PATCH_IF %spl_level% = 1 THEN
+        BEGIN
+          SET %__XP__%       = %_XP_PER_CAST_LVL_1_%
+          SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_1_% / %__XP__%)
+        END
+
+        PATCH_IF %spl_level% = 2 THEN
+        BEGIN
+          SET %__XP__% = %_XP_PER_CAST_LVL_2_%
+          SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_2_% / %__XP__%)
+        END
+
+        PATCH_IF %spl_level% = 3 THEN
+        BEGIN
+          SET %__XP__% = %_XP_PER_CAST_LVL_3_%
+          SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_3_% / %__XP__%)
+        END
+
+        PATCH_IF %spl_level% = 4 THEN
+        BEGIN
+          SET %__XP__% = %_XP_PER_CAST_LVL_4_%
+          SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_4_% / %__XP__%)
+        END
+
+        PATCH_IF %spl_level% = 5 THEN
+        BEGIN
+          SET %__XP__% = %_XP_PER_CAST_LVL_5_%
+          SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_5_% / %__XP__%)
+        END
+
+        PATCH_IF %spl_level% = 6 THEN
+        BEGIN
+          SET %__XP__% = %_XP_PER_CAST_LVL_6_%
+          SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_6_% / %__XP__%)
+        END
+
+        PATCH_IF %spl_level% = 7 THEN
+        BEGIN
+          SET %__XP__% = %_XP_PER_CAST_LVL_7_%
+          SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_7_% / %__XP__%)
+        END
+
+
+        INNER_ACTION BEGIN
+
+            EXTEND_TOP ~dplayer2.bcs~ ~iiSpellSystemAdjustments/baf/dplayer.baf~
+              EVALUATE_BUFFER
+
+            EXTEND_TOP ~dplayer3.bcs~ ~iiSpellSystemAdjustments/baf/dplayer.baf~
+              EVALUATE_BUFFER
+        END
+
+      END
+    END
+    BUT_ONLY_IF_IT_CHANGES
+
+
+
+BEGIN @4052
+GROUP @4001
+SUBCOMPONENT @4001
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5000
+    ACTION_READLN _XP_PER_CAST_LVL_1_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_1_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_1_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5001
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_1_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_1_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_1_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5002
+    ACTION_READLN _XP_PER_CAST_LVL_2_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_2_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_2_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5003
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_2_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_2_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_2_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5004
+    ACTION_READLN _XP_PER_CAST_LVL_3_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_3_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_3_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5005
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_3_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_3_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_3_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5006
+    ACTION_READLN _XP_PER_CAST_LVL_4_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_4_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_4_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5007
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_4_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_4_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_4_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5008
+    ACTION_READLN _XP_PER_CAST_LVL_5_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_5_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_5_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5009
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_5_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_5_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_5_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5010
+    ACTION_READLN _XP_PER_CAST_LVL_6_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_6_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_6_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5011
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_6_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_6_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_6_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5012
+    ACTION_READLN _XP_PER_CAST_LVL_7_
+    ACTION_IF (IS_AN_INT %_XP_PER_CAST_LVL_7_%) THEN
+    BEGIN
+      ACTION_IF (%_XP_PER_CAST_LVL_7_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+  OUTER_SET done = 0
+  OUTER_WHILE (done = 0)
+  BEGIN
+    PRINT @5013
+    ACTION_READLN _MAX_XP_PER_SPELL_LVL_7_
+    ACTION_IF (IS_AN_INT %_MAX_XP_PER_SPELL_LVL_7_%) THEN
+    BEGIN
+      ACTION_IF (%_MAX_XP_PER_SPELL_LVL_7_% > 0) THEN
+      BEGIN
+        OUTER_SET done = 1
+      END
+    END
+  END
+
+//  COPY_EXISTING_REGEXP GLOB ~^.+\.spl$~ ~override~
+  COPY_EXISTING_REGEXP GLOB ~^\([Ss][Pp][Ww][Ii]\).*\.spl$~ ~override~
+    PATCH_IF (SOURCE_SIZE > 0x71) THEN BEGIN // protects against invalid files
+      READ_SHORT 0x1c "spl_type"
+      READ_LONG  0x34 "spl_level"
+      READ_LONG  0x64 "abil_off"
+      READ_SHORT 0x68 "abil_num"
+      READ_LONG  0x6a "fx_off"
+      PATCH_IF ("%spl_type%" = "2") BEGIN
+        SET "loops" = 0
+        SET "delta" = 0
+        WHILE ("%loops%" < "%abil_num%") BEGIN
+          READ_SHORT ("%abil_off%" + 0x1e + (0x28 * "%loops%")) "abil_fx_num"
+          READ_SHORT ("%abil_off%" + 0x20 + (0x28 * "%loops%")) "abil_fx_idx"
+          SET "abil_fx_idx" = ("%abil_fx_idx%" + "%delta%")
+          WRITE_SHORT ("%abil_off%" + 0x20 + (0x28 * "%loops%")) "%abil_fx_idx%"
+          INSERT_BYTES  ("%fx_off%" +        ("%abil_fx_idx%" * 0x30)) 0x30   // New effect
+            WRITE_SHORT ("%fx_off%" +        ("%abil_fx_idx%" * 0x30)) 309    // Set/Modify Variable
+            WRITE_BYTE ("%fx_off%" + 0x02 + (("%abil_fx_idx%") * 0x30)) 1     // Target Self
+            WRITE_BYTE ("%fx_off%" + 0x04 + (("%abil_fx_idx%") * 0x30)) 1     // Value
+            WRITE_BYTE ("%fx_off%" + 0x08 + (("%abil_fx_idx%") * 0x30)) 0     // Type
+            WRITE_BYTE ("%fx_off%" + 0x0c + (("%abil_fx_idx%") * 0x30)) 1     // Permanent/Instant
+            WRITE_BYTE ("%fx_off%" + 0x12 + (("%abil_fx_idx%") * 0x30)) 100   // Probability
+            WRITE_BYTE ("%fx_off%" + 0x0d + (("%abil_fx_idx%") * 0x30)) 0     // Dispel/Bypass
+            WRITE_EVALUATED_ASCII ("%fx_off%" + 0x14 + (("%abil_fx_idx%") * 0x30)) ~%SOURCE_RES%~ #8     // Resource
+          SET "delta1" = 1
+          SET "delta" = ("%delta%" + "%delta1%")
+          WRITE_SHORT ("%abil_off%" + 0x1e + (0x28 * "%loops%")) ("%abil_fx_num%" + "%delta1%")
+          SET "loops" = ("%loops%" + 1)
+        END
+
+          SPRINT %__SPELL__%  ~%SOURCE_RES%~
+      
+          PATCH_IF %spl_level% = 1 THEN
+          BEGIN
+            SET %__XP__%       = %_XP_PER_CAST_LVL_1_%
+            SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_1_% / %__XP__%)
+          END
+      
+          PATCH_IF %spl_level% = 2 THEN
+          BEGIN
+            SET %__XP__% = %_XP_PER_CAST_LVL_2_%
+            SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_2_% / %__XP__%)
+          END
+      
+          PATCH_IF %spl_level% = 3 THEN
+          BEGIN
+            SET %__XP__% = %_XP_PER_CAST_LVL_3_%
+            SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_3_% / %__XP__%)
+          END
+      
+          PATCH_IF %spl_level% = 4 THEN
+          BEGIN
+            SET %__XP__% = %_XP_PER_CAST_LVL_4_%
+            SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_4_% / %__XP__%)
+          END
+      
+          PATCH_IF %spl_level% = 5 THEN
+          BEGIN
+            SET %__XP__% = %_XP_PER_CAST_LVL_5_%
+            SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_5_% / %__XP__%)
+          END
+      
+          PATCH_IF %spl_level% = 6 THEN
+          BEGIN
+            SET %__XP__% = %_XP_PER_CAST_LVL_6_%
+            SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_6_% / %__XP__%)
+          END
+      
+          PATCH_IF %spl_level% = 7 THEN
+          BEGIN
+            SET %__XP__% = %_XP_PER_CAST_LVL_7_%
+            SET %__MAX_XP__%   = (%_MAX_XP_PER_SPELL_LVL_7_% / %__XP__%)
+          END
+      
+          INNER_ACTION BEGIN
+      
+              EXTEND_TOP ~dplayer2.bcs~ ~iiSpellSystemAdjustments/baf/dplayer.baf~
+                EVALUATE_BUFFER
+      
+              EXTEND_TOP ~dplayer3.bcs~ ~iiSpellSystemAdjustments/baf/dplayer.baf~
+                EVALUATE_BUFFER
+          END
+
+      END
+    END
+    BUT_ONLY_IF_IT_CHANGES
+
+// ----------------------------------------------------------------------------
+// EOF

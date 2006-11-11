@@ -1,0 +1,10 @@
+IF
+  GlobalGT("%__SPELL__%", "LOCALS", 0)
+  GlobalLT("%__SPELL__%B", "LOCALS", %__MAX_XP__%)  // xp per cast / max XP per spell
+THEN
+  RESPONSE #100
+    AddXPObject(Myself, %__XP__%)  // XP per cast
+    SetGlobal("%__SPELL__%", "LOCALS", 0)
+    IncrementGlobal("%__SPELL__%B", "LOCALS", 1)
+END
+

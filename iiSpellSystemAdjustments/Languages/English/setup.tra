@@ -1,0 +1,45 @@
+@10 = ~Refresh Mage spells~
+@20 = ~Refresh Priest spells~
+@30 = ~Refresh Innate spells~
+
+@50 = ~Enter the number of seconds for spells to refresh (0 = instant)~
+
+@51 = ~Refresh on successful casting only~
+@52 = ~Refresh on successful casting and on unsuccessful casting~
+
+@100 = ~Refesh Mage spells~
+@110 = ~Refesh Priest spells~
+@120 = ~Refesh Innate spells~
+
+@200 = ~Magetype~
+@210 = ~Priesttype~
+@220 = ~Innatetype~
+
+@1000 = ~View Readme~
+@1010 = ~Show readme after installation~
+@1020 = ~Do not show readme after installation~
+
+@4000 = ~XP for casting (Mage spells)~
+@4001 = ~XP for casting (Priest spells)~
+
+@4051 = ~XP on successful casting only~
+@4052 = ~XP on successful casting and on unsuccessful casting~
+
+@5000 = ~Enter XP per cast (Level 1 spells)~
+@5001 = ~Enter maximum XP per spell (Level 1 spells)~
+@5002 = ~Enter XP per cast (Level 2 spells)~
+@5003 = ~Enter maximum XP per spell (Level 2 spells)~
+@5004 = ~Enter XP per cast (Level 3 spells)~
+@5005 = ~Enter maximum XP per spell (Level 3 spells)~
+@5006 = ~Enter XP per cast (Level 4 spells)~
+@5007 = ~Enter maximum XP per spell (Level 4 spells)~
+@5008 = ~Enter XP per cast (Level 5 spells)~
+@5009 = ~Enter maximum XP per spell (Level 5 spells)~
+@5010 = ~Enter XP per cast (Level 6 spells)~
+@5011 = ~Enter maximum XP per spell (Level 6 spells)~
+@5012 = ~Enter XP per cast (Level 7 spells)~
+@5013 = ~Enter maximum XP per spell (Level 7 spells)~
+@5014 = ~Enter XP per cast (Level 8 spells)~
+@5015 = ~Enter maximum XP per spell (Level 8 spells)~
+@5016 = ~Enter XP per cast (Level 9 spells)~
+@5017 = ~Enter maximum XP per spell (Level 9 spells)~

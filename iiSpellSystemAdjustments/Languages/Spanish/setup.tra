@@ -1,0 +1,45 @@
+@10 = ~Refrescar hechizos de Magos~
+@20 = ~Refrescar hechizos de Clérigos~
+@30 = ~Refrescar Hechizos Innatos~
+
+@50 = ~Pon el número de segundos para refrescar hechizos (0 = instantáneo)~
+
+@51 = ~Refrescar sólamente al lanzar exitosamente~
+@52 = ~Refrescar al lanzar exitosamente o no~
+
+@100 = ~Hechizos de Magos~
+@110 = ~Hechizos de Clérigos~
+@120 = ~Refrescar Hechizos Innatos~
+
+@200 = ~Tipo de Mago~
+@210 = ~Tipo de Clérigo~
+@220 = ~TipoInnato~
+
+@1000 = ~Ver leeme~
+@1010 = ~Mostrar leeme luego de la instalación~
+@1020 = ~No mostrar leeme luego de la instalación~
+
+@4000 = ~XP para lanzar (Hechizos de Mago)~
+@4001 = ~XP para lanzar (Hechizos de Clerigo)~
+
+@4051 = ~XP solamente en lanzamiento exitoso~
+@4052 = ~XP en lanzamiento exitoso y no exitoso~
+
+@5000 = ~Introduce XP por lanzamiento (Hechizo de nivel 1)~
+@5001 = ~Introduce XP maximo por hechizo (Hechizo de nivel 1)~
+@5002 = ~Introduce XP por lanzamiento (Hechizo de nivel 2)~
+@5003 = ~Introduce XP maximo por hechizo (Hechizo de nivel 2)~
+@5004 = ~Introduce XP por lanzamiento (Hechizo de nivel 3)~
+@5005 = ~Introduce XP maximo por hechizo (Hechizo de nivel 3)~
+@5006 = ~Introduce XP por lanzamiento (Hechizo de nivel 4)~
+@5007 = ~Introduce XP maximo por hechizo (Hechizo de nivel 4)~
+@5008 = ~Introduce XP por lanzamiento (Hechizo de nivel 5)~
+@5009 = ~Introduce XP maximo por hechizo (Hechizo de nivel 5)~
+@5010 = ~Introduce XP por lanzamiento (Hechizo de nivel 6)~
+@5011 = ~Introduce XP maximo por hechizo (Hechizo de nivel 6)~
+@5012 = ~Introduce XP por lanzamiento (Hechizo de nivel 7)~
+@5013 = ~Introduce XP maximo por hechizo (Hechizo de nivel 7)~
+@5014 = ~Introduce XP por lanzamiento (Hechizo de nivel ~
+@5015 = ~Introduce XP maximo por hechizo (Hechizo de nivel ~
+@5016 = ~Introduce XP por lanzamiento (Hechizo de nivel 9)~
+@5017 = ~Introduce XP maximo por hechizo (Hechizo de nivel 9)~
