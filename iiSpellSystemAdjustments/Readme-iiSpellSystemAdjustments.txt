@@ -1,4 +1,4 @@
-Spell System Adjustments Mod V3
+Spell System Adjustments Mod V4
 -------------------------------
 
 +) Contents
@@ -48,6 +48,11 @@ Installing the mod and setting various parameters, uninstalling the mod, and the
 
 +) Section 5. Version History
 =============================
+V4 [01/06/2007]
+  - Fixed bug limiting refresh delay to 255 or below
+  - Fixed bug causing install failures
+  - Removed 'Refresh Innates' components (as they could never work)
+
 V3 [11/11/2006]
   - Renamed mod to Spell System Adjustments
   - Offer the option to refresh Innate abilities
