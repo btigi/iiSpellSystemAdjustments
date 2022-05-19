@@ -1,11 +1,11 @@
 // ----------------------------------------------------------------------------
 // Name:   Spell Refresh Mod
 // Author: igi
-// Date:   21/09/2006
+// Date:   19/05/2022
 // ----------------------------------------------------------------------------
 BACKUP ~iiSpellSystemAdjustments/backup~
 AUTHOR ~igi~
-
+VERSION ~4.1~
 LANGUAGE ~English~ ~English~ ~iiSpellSystemAdjustments/Languages/English/setup.tra~
 LANGUAGE ~Spanish (Translation by Immortality)~  ~Spanish~ ~iiSpellSystemAdjustments/Languages/Spanish/setup.tra~
 

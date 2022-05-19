@@ -1,5 +1,5 @@
-Spell System Adjustments Mod V4
--------------------------------
+Spell System Adjustments Mod V4.1
+---------------------------------
 
 +) Contents
 ===========
@@ -48,6 +48,9 @@ Installing the mod and setting various parameters, uninstalling the mod, and the
 
 +) Section 5. Version History
 =============================
+V4.1 [19/05/2022]
+  - Packaging update, no content changes
+
 V4 [01/06/2007]
   - Fixed bug limiting refresh delay to 255 or below
   - Fixed bug causing install failures
@@ -67,7 +70,4 @@ V1 [24/09/2006]
 
 +) Section 6. Contact Details
 =============================
-Feedback, comments, queries, questions and suggestion should be sent to bt_igi / igi (Marc Wrench)
-E-mail: igi@mcwrench.com
-WWW   : http://www.teambg.eu
-WWW   : http://www.mcwrench.com
+Feedback, comments, queries, questions and suggestion should be sent to bt_igi / igi
