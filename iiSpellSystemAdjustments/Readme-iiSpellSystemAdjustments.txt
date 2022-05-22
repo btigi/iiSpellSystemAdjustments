@@ -70,4 +70,4 @@ V1 [24/09/2006]
 
 +) Section 6. Contact Details
 =============================
-Feedback, comments, queries, questions and suggestion should be sent to bt_igi / igi
+Feedback, comments, queries, questions and suggestion should be sent to igi / bt_igi / iggti
